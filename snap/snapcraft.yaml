@@ -1,0 +1,153 @@
+name: pcsc-daemon
+base: core18
+adopt-info: pcscd
+summary: Middleware to access a smart card using SCard API (PC/SC)
+description: |
+  The pcsc-lite daemon in a snap
+
+  This snap ships support for all acsccid and ccid readers along with
+  the pcsc-lite daemon, teh pcsc-scan tool and the scriptor commandline
+  too to read/write to smartcards
+
+  The snap also provides a content interface for other snaps to consume
+  the pcscd socket.
+
+  If you have extrarodinary setup rquirements you can place a
+  configuration file into /var/snap/pcsc-daemon/common/reader.conf.d
+  using the documented format.
+
+  Please make sure the raw-usb and hardware-observe interfaces are
+  connected to run the daemon.
+
+  Some readers will require you to blacklist the pn533_usb module, to
+  do this run
+
+      echo pn533_usb | sudo tee /etc/modprobe.d/blacklist-pn533.conf
+
+  and reboot your system.
+
+grade: stable
+confinement: strict
+
+slots:
+  socket:
+    interface: content
+    content: pcscd-socket
+    source:
+      write: [ $SNAP_COMMON/pcscd ]
+
+apps:
+  pcscd:
+    command: pcscd --foreground --auto-exit
+    daemon: simple
+    plugs:
+      - hardware-observe
+      - network
+      - network-bind
+      - raw-usb
+      - serial-port
+    sockets:
+      pcscd-socket:
+        listen-stream: $SNAP_COMMON/pcscd/pcscd.comm
+        socket-mode: 0666
+  pcsc-scan:
+    command: pcsc_scan
+    command-chain:
+      - bin/debian-multiarch-triplet-provider-launch
+      - bin/perl-launch
+    environment:
+      LANG: C.UTF-8
+    plugs:
+      - network
+      - network-bind
+      - raw-usb
+  scriptor:
+    command: scriptor
+    command-chain:
+      - bin/debian-multiarch-triplet-provider-launch
+      - bin/perl-launch
+    environment:
+      LANG: C.UTF-8
+    plugs:
+      - raw-usb
+
+layout:
+  /lib/pcsc/drivers:
+    bind: $SNAP/lib/pcsc/drivers
+  /var/lib/usbutils:
+    bind: $SNAP/var/lib/usbutils
+  /etc/wgetrc:
+    bind-file: $SNAP/etc/wgetrc
+
+parts:
+  pcscd:
+    source: https://salsa.debian.org/rousseau/PCSC.git
+    source-tag: pcsc-1.9.0
+    plugin: autotools
+    configflags:
+      - -enable-ipcdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/pcscd
+      - -enable-confdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/reader.conf.d
+    override-build: |
+      snapcraftctl build
+      # set version
+      VERSION="$(grep AC_INIT configure.ac | sed 's/^.*\[//;s/\].*$//')"
+      echo "setting version to $VERSION"
+      snapcraftctl set-version $VERSION
+      # copy license
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd
+      cp COPYING $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
+      cp AUTHORS $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
+      cp GPL-3.0.txt $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
+    build-packages:
+      - libusb-1.0-0-dev
+    stage-packages:
+      - libusb-1.0-0
+  acsccid:
+    source: .
+    plugin: autotools
+    after: [ pcscd ]
+    override-pull: |
+      snapcraftctl pull
+      # get the latest upstream version
+      SF_URL="https://sourceforge.net/projects/acsccid/files/acsccid"
+      VER="$(wget -O- -q $SF_URL | html2text | grep -A1 Parent_folder | tail -1 | sed 's/ .*$//')"
+      D_URL="https://sourceforge.net/projects/acsccid/files/acsccid/$VER/acsccid-$VER.tar.bz2"
+      wget -O- -q $D_URL | bzcat | tar x --strip-components=1
+    override-build: |
+      snapcraftctl build
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid
+      cp COPYING $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid/
+      cp AUTHORS $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid/
+    build-packages:
+      - html2text
+      - tar
+      - wget
+      - libusb-1.0-0-dev
+      - flex
+      - perl
+      - pkg-config
+    stage-packages:
+      - libusb-1.0-0
+  ccid:
+    source: https://salsa.debian.org/rousseau/CCID.git
+    plugin: autotools
+    after: [ acsccid ]
+    build-packages:
+      - libusb-1.0-0-dev
+    stage-packages:
+      - libusb-1.0-0
+  pcsc-tools:
+    source: https://salsa.debian.org/rousseau/pcsc-tools.git
+    plugin: autotools
+    after: [ ccid ]
+    override-build: |
+      snapcraftctl build
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcsc-tools
+      cp LICENCE $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcsc-tools/
+    stage-packages:
+      - libgetopt-complete-perl
+      - libpcsc-perl
+      - wget
+    stage-snaps:
+      - debian-multiarch-triplet-provider-launch
+      - perl-launch
