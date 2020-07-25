@@ -99,6 +99,7 @@ parts:
       cp AUTHORS $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
       cp GPL-3.0.txt $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
     build-packages:
+      - libsystemd-dev
       - libusb-1.0-0-dev
     stage-packages:
       - libusb-1.0-0
