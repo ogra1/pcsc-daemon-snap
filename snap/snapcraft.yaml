@@ -33,8 +33,8 @@ slots:
   socket:
     interface: content
     content: pcscd-socket
-    source:
-      write: [ $SNAP_COMMON/pcscd ]
+    write:
+      - $SNAP_COMMON/pcscd
 
 apps:
   pcscd:
