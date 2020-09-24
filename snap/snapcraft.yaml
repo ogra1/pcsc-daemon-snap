@@ -38,7 +38,7 @@ slots:
 
 apps:
   pcscd:
-    command: pcscd --foreground --auto-exit
+    command: sbin/pcscd --foreground --auto-exit
     daemon: simple
     plugs:
       - hardware-observe
@@ -51,7 +51,7 @@ apps:
         listen-stream: $SNAP_COMMON/pcscd/pcscd.comm
         socket-mode: 0666
   pcsc-scan:
-    command: pcsc_scan
+    command: bin/pcsc_scan
     command-chain:
       - bin/debian-multiarch-triplet-provider-launch
       - bin/perl-launch
@@ -82,9 +82,10 @@ layout:
 parts:
   pcscd:
     source: https://salsa.debian.org/rousseau/PCSC.git
-    source-tag: pcsc-1.9.0
+    source-tag: 1.9.0
     plugin: autotools
     configflags:
+      - -includedir=${prefix}/include
       - -enable-ipcdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/pcscd
       - -enable-confdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/reader.conf.d
     override-build: |
@@ -93,11 +94,11 @@ parts:
       VERSION="$(grep AC_INIT configure.ac | sed 's/^.*\[//;s/\].*$//')"
       echo "setting version to $VERSION"
       snapcraftctl set-version $VERSION
-      # copy license
-      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd
-      cp COPYING $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
-      cp AUTHORS $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
-      cp GPL-3.0.txt $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcscd/
+    organize:
+      include/PCSC: include
+      $SNAPCRAFT_PART_SRC/COPYING: usr/share/doc/pcscd/COPYING
+      $SNAPCRAFT_PART_SRC/AUTHORS: usr/share/doc/pcscd/AUTHORS
+      $SNAPCRAFT_PART_SRC/GPL-3.0.txt: usr/share/doc/pcscd/GPL-3.0.txt
     build-packages:
       - libsystemd-dev
       - libudev-dev
@@ -115,11 +116,9 @@ parts:
       VER="$(wget -O- -q $SF_URL | html2text | grep -A1 Parent_folder | tail -1 | sed 's/ .*$//')"
       D_URL="https://sourceforge.net/projects/acsccid/files/acsccid/$VER/acsccid-$VER.tar.bz2"
       wget -O- -q $D_URL | bzcat | tar x --strip-components=1
-    override-build: |
-      snapcraftctl build
-      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid
-      cp COPYING $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid/
-      cp AUTHORS $SNAPCRAFT_PART_INSTALL/usr/share/doc/acsccid/
+    organize:
+      $SNAPCRAFT_PART_SRC/AUTHORS: usr/share/doc/acsccid/AUTHORS
+      $SNAPCRAFT_PART_SRC/COPYING: usr/share/doc/acsccid/COPYING
     build-packages:
       - html2text
       - tar
@@ -134,6 +133,9 @@ parts:
     source: https://salsa.debian.org/rousseau/CCID.git
     plugin: autotools
     after: [ acsccid ]
+    organize:
+      $SNAPCRAFT_PART_SRC/AUTHORS: usr/share/doc/ccid/AUTHORS
+      $SNAPCRAFT_PART_SRC/COPYING: usr/share/doc/ccid/COPYING
     build-packages:
       - libusb-1.0-0-dev
     stage-packages:
@@ -142,10 +144,8 @@ parts:
     source: https://salsa.debian.org/rousseau/pcsc-tools.git
     plugin: autotools
     after: [ ccid ]
-    override-build: |
-      snapcraftctl build
-      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcsc-tools
-      cp LICENCE $SNAPCRAFT_PART_INSTALL/usr/share/doc/pcsc-tools/
+    organize:
+      $SNAPCRAFT_PART_SRC/LICENCE: usr/share/doc/pcsc-tools/LICENSE
     stage-packages:
       - libgetopt-complete-perl
       - libpcsc-perl
