@@ -16,9 +16,6 @@ description: |
   configuration file into /var/snap/pcsc-daemon/common/reader.conf.d
   using the documented format.
 
-  Please make sure the raw-usb and hardware-observe interfaces are
-  connected to run the daemon.
-
   Some readers will require you to blacklist the pn533_usb module, to
   do this run
 
