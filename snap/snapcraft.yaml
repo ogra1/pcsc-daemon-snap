@@ -6,7 +6,7 @@ description: |
   The pcsc-lite daemon in a snap
 
   This snap ships support for all acsccid and ccid readers along with
-  the pcsc-lite daemon, teh pcsc-scan tool and the scriptor commandline
+  the pcsc-lite daemon, the pcsc-scan tool and the scriptor commandline
   too to read/write to smartcards
 
   The snap also provides a content interface for other snaps to consume
