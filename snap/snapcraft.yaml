@@ -12,7 +12,7 @@ description: |
   The snap also provides a content interface for other snaps to consume
   the pcscd socket.
 
-  If you have extrarodinary setup rquirements you can place a
+  If you have extraordinary setup requirements you can place a
   configuration file into /var/snap/pcsc-daemon/common/reader.conf.d
   using the documented format.
 
