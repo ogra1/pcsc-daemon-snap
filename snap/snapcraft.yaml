@@ -1,5 +1,5 @@
 name: pcsc-daemon
-base: core18
+base: core20
 adopt-info: pcscd
 summary: Middleware to access a smart card using SCard API (PC/SC)
 description: |
@@ -35,7 +35,7 @@ slots:
 
 apps:
   pcscd:
-    command: sbin/pcscd --foreground --auto-exit
+    command: usr/sbin/pcscd --foreground --auto-exit
     daemon: simple
     plugs:
       - hardware-observe
@@ -48,7 +48,7 @@ apps:
         listen-stream: $SNAP_COMMON/pcscd/pcscd.comm
         socket-mode: 0666
   pcsc-scan:
-    command: bin/pcsc_scan
+    command: usr/bin/pcsc_scan
     command-chain:
       - bin/debian-multiarch-triplet-provider-launch
       - bin/perl-launch
@@ -58,8 +58,9 @@ apps:
       - network
       - network-bind
       - raw-usb
+      - hardware-observe
   scriptor:
-    command: scriptor
+    command: usr/bin/scriptor
     command-chain:
       - bin/debian-multiarch-triplet-provider-launch
       - bin/perl-launch
@@ -67,10 +68,11 @@ apps:
       LANG: C.UTF-8
     plugs:
       - raw-usb
+      - hardware-observe
 
 layout:
-  /lib/pcsc/drivers:
-    bind: $SNAP/lib/pcsc/drivers
+  /usr/lib/pcsc/drivers:
+    bind: $SNAP/usr/lib/pcsc/drivers
   /var/lib/usbutils:
     bind: $SNAP/var/lib/usbutils
   /etc/wgetrc:
@@ -78,13 +80,21 @@ layout:
 
 parts:
   pcscd:
-    source: https://salsa.debian.org/rousseau/PCSC.git
-    source-tag: 1.9.0
+    source: .
     plugin: autotools
-    configflags:
-      - -includedir=${prefix}/include
-      - -enable-ipcdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/pcscd
-      - -enable-confdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/reader.conf.d
+    override-pull: |
+      snapcraftctl pull
+      D_URL="https://pcsclite.apdu.fr/files/"
+      VER="$(wget -O- -q $D_URL | html2text | grep -A1 'Latest version' | tail -1 |  sed 's/ .*$//' )"
+      echo "$VER"
+      echo "$D_URL$VER"
+      D_FILE="$D_URL$VER"
+      wget -O- -q $D_FILE | bzcat | tar x --strip-components=1
+    autotools-configure-parameters:
+      - --prefix=/usr/
+      - --includedir=/usr/include
+      - --enable-ipcdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/pcscd
+      - --enable-confdir=/var/snap/$SNAPCRAFT_PROJECT_NAME/common/reader.conf.d
     override-build: |
       snapcraftctl build
       # set version
@@ -92,7 +102,7 @@ parts:
       echo "setting version to $VERSION"
       snapcraftctl set-version $VERSION
     organize:
-      include/PCSC: include
+      $SNAPCRAFT_PART_INSTALL/usr/include/PCSC: include
       $SNAPCRAFT_PART_SRC/COPYING: usr/share/doc/pcscd/COPYING
       $SNAPCRAFT_PART_SRC/AUTHORS: usr/share/doc/pcscd/AUTHORS
       $SNAPCRAFT_PART_SRC/GPL-3.0.txt: usr/share/doc/pcscd/GPL-3.0.txt
@@ -102,13 +112,15 @@ parts:
       - libusb-1.0-0-dev
     stage-packages:
       - libusb-1.0-0
+
   acsccid:
     source: .
     plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=/usr/
     after: [ pcscd ]
     override-pull: |
       snapcraftctl pull
-      # get the latest upstream version
       SF_URL="https://sourceforge.net/projects/acsccid/files/acsccid"
       VER="$(wget -O- -q $SF_URL | html2text | grep -A1 Parent_folder | tail -1 | sed 's/ .*$//')"
       D_URL="https://sourceforge.net/projects/acsccid/files/acsccid/$VER/acsccid-$VER.tar.bz2"
@@ -126,9 +138,20 @@ parts:
       - pkg-config
     stage-packages:
       - libusb-1.0-0
+
   ccid:
-    source: https://salsa.debian.org/rousseau/CCID.git
+    source: .
     plugin: autotools
+    override-pull: |
+      snapcraftctl pull
+      C_URL="https://ccid.apdu.fr/files/"
+      VER="$(wget -O- -q $C_URL | html2text | grep -A1 'Latest version' | tail -1 |  sed 's/ .*$//' )"
+      echo "$VER"
+      echo "$C_URL$VER"
+      C_FILE="$C_URL$VER"
+      wget -O- -q $C_FILE | bzcat | tar x --strip-components=1
+    autotools-configure-parameters:
+      - --prefix=/usr/
     after: [ acsccid ]
     organize:
       $SNAPCRAFT_PART_SRC/AUTHORS: usr/share/doc/ccid/AUTHORS
@@ -137,10 +160,22 @@ parts:
       - libusb-1.0-0-dev
     stage-packages:
       - libusb-1.0-0
+
   pcsc-tools:
-    source: https://salsa.debian.org/rousseau/pcsc-tools.git
+    source: .
     plugin: autotools
+    override-pull: |
+      snapcraftctl pull
+      T_URL="http://ludovic.rousseau.free.fr/softwares/pcsc-tools/"
+      VER="$(wget -O- -q $T_URL | html2text | grep -A3 'Source Download' | tail -1 | awk '{print $5}' )"
+      echo "$VER"
+      echo "$T_URL$VER"
+      T_FILE="$T_URL$VER"
+      wget -O- -q $T_FILE | bzcat | tar x --strip-components=1
     after: [ ccid ]
+    autotools-configure-parameters:
+      - --prefix=/usr/
+      - --includedir=/usr/include
     organize:
       $SNAPCRAFT_PART_SRC/LICENCE: usr/share/doc/pcsc-tools/LICENSE
     stage-packages:
